@@ -60,10 +60,7 @@ class Cosal_Sampler(Sampler):
         self.group_size = group_size
         self.sal_batch_size = sal_batch_size
         self.sal_len = sal_len
-        self.len = None
-        self.batches_indices = None
 
-        self.reset_batches_indices()
 
     def reset_batches_indices(self):
         groups = []
@@ -152,7 +149,7 @@ def build_dataloader(
     batch_size,
     group_size=None,
     sal_batch_size=0,
-    sal_paths=None,
+    sal_paths: list=None,
     shuffle=True,
     num_workers=0,
     pin_memory=True,
@@ -192,6 +189,26 @@ def build_dataloader(
 
 
 ########################### Testing Script ###########################
+"""dataset format
+dataset1
+- img
+  - group1
+    - *.jpg
+    - *.png
+    ...
+  .. 
+- gt
+  - group1
+    - *.png
+    - *.png
+    ...
+  ..
+dataset2
+......
+dataset3
+......
+
+"""
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from pprint import pprint
