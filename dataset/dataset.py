@@ -6,6 +6,8 @@ import torch
 import numpy as np
 import cv2
 from torch.utils.data import Dataset, DataLoader, Sampler
+from .pipelines import Compose
+
 
 def _init_fn(worker_id):
     np.random.seed(666 + worker_id)
@@ -30,13 +32,15 @@ def build_file_paths(img_roots):
 
 
 class CosalDataset(Dataset):
-    def __init__(self, cosal_paths, sal_paths=None, train=True):
+    def __init__(self, cosal_paths, pipeline, sal_paths=None,**kwargs):
         img_paths, indices = build_file_paths(cosal_paths)
         self.samples = img_paths
         self.indices = indices
         self.len = len(img_paths)
+        self.pipeline = Compose(pipeline)
+        
+        
         self.sal_img_len = 0
-        self.train = train
         if sal_paths:
             sal_img_paths, sal_indices = build_file_paths(sal_paths)
             self.samples += sal_img_paths
@@ -47,12 +51,13 @@ class CosalDataset(Dataset):
         image_path = self.samples[idx]
         group_path = os.path.dirname(image_path)
         sal = idx >= self.len
-        return {"image_path": image_path, "sal": sal, "group_path": group_path}
+        image_info = {"image_path": image_path, "sal": sal, "group_path": group_path}
+        return self.pipeline(image_info)
 
 
 class Cosal_Sampler(Sampler):
     def __init__(
-        self, indices, shuffle, batch_size, group_size, sal_batch_size=0, sal_len=0
+        self, indices, shuffle, batch_size, group_size, sal_batch_size=0, sal_len=0,**kwargs,
     ):
         self.indices = indices
         self.shuffle = shuffle
@@ -134,14 +139,19 @@ class Cosal_Sampler(Sampler):
                     group_num.append(i)
                     i = 1
                     current = sample["group_path"]
+                cosal_img.append(sample['img'].unsqueeze(0))
             else:
                 if not entered_sal and i:
                     group_num.append(i)
                     entered_sal = True
-                pass
+                sal_img.append(sample['img'].unsqueeze(0))
             path.append(sample["image_path"])
+        
+        cosal_img = torch.cat(cosal_img,0)
+        if sal_img:
+            sal_img = torch.cat(sal_img,0)
 
-        return {"group_num": group_num, "path": path}
+        return {"group_num": group_num, "path": path,'cosal_img':cosal_img,'sal_img':sal_img}
 
 
 def build_dataloader(
@@ -154,10 +164,13 @@ def build_dataloader(
     num_workers=0,
     pin_memory=True,
     fix_seed=False,
+    **kwargs,
 ):
+    
+    
     dataset = CosalDataset(
         cosal_paths=cosal_paths,
-        sal_paths=sal_paths,
+        sal_paths=sal_paths,**kwargs,
     )
 
     cosal_sampler = Cosal_Sampler(
