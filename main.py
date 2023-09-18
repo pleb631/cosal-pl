@@ -12,6 +12,7 @@ import lightning.pytorch as pl
 def parse_args():
     parser = argparse.ArgumentParser(description="cosal")
     parser.add_argument("config", type=str, help="train config file path")
+    parser.add_argument("--local_log",action='store_true', default=False, help="use csv/yaml logger")
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -51,11 +52,15 @@ def main():
     
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
      monitor='loss',
-     dirpath='tb_logs/my_model/',
+     dirpath='workdir/my_model/',
      filename='sample-mnist-{epoch:02d}-{loss:.2f}',
      every_n_epochs=1
- )
-    logger=pl.loggers.TensorBoardLogger("tb_logs", name="my_model")
+ )  
+    if args.local_log:
+        logger = pl.loggers.csv_logs.CSVLogger(save_dir="workdir",name="basemodel")
+    else:
+        logger=pl.loggers.TensorBoardLogger(save_dir="workdir", name="basemodel")
+    
     lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(max_epochs=10,callbacks=[lr_monitor,checkpoint_callback],logger=logger)
     trainer.fit(model=model, train_dataloaders=datasets)
