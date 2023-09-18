@@ -108,6 +108,16 @@ class Resize(object):
                     backend=self.backend)
                 results[key] = img
                 results['img_shape'] = img.shape
+                
+                if 'gt' in results:
+                    gt = results['gt']
+                    gt = mmcv.imresize(
+                    gt,
+                    size=(width, height),
+                    interpolation=self.interpolation,
+                    return_scale=False,
+                    backend=self.backend)
+                    results['gt'] = gt
 
     def __call__(self, results):
         self._resize_img(results)
@@ -174,6 +184,8 @@ class ImageToTensor:
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             results[key] = to_tensor(img.transpose(2, 0, 1))
+            if 'gt' in results:
+                results["gt"] = torch.from_numpy(results["gt"])
         return results
 
     def __repr__(self):
@@ -215,6 +227,8 @@ class Normalize:
                                             self.to_rgb)
         results['img_norm_cfg'] = dict(
             mean=self.mean, std=self.std, to_rgb=self.to_rgb)
+        if 'gt' in results:
+            results['gt'] = results['gt']/255
         return results
 
     def __repr__(self):

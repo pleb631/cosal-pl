@@ -58,9 +58,4 @@ class LoadImageFromFile(object):
             to_rgb=False)
         return results
 
-    def __repr__(self):
-        repr_str = (f'{self.__class__.__name__}('
-                    f'to_float32={self.to_float32}, '
-                    f"color_type='{self.color_type}', "
-                    f'file_client_args={self.file_client_args})')
-        return repr_str
+

@@ -24,4 +24,10 @@ class VGG16(BaseBackbone):
         self.encoder = nn.Sequential(bb_convs)
         
     def forward(self, x):
-        return self.encoder(x)
+        conv1_2 = self.encoder.conv1(x)
+        conv2_2 = self.encoder.conv2(conv1_2)
+        conv3_3 = self.encoder.conv3(conv2_2)
+        conv4_3 = self.encoder.conv4(conv3_3)
+        conv5_3 = self.encoder.conv5(conv4_3)
+        
+        return [conv1_2, conv2_2, conv3_3, conv4_3, conv5_3]

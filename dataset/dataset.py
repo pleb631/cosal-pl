@@ -7,12 +7,12 @@ import numpy as np
 import cv2
 from torch.utils.data import Dataset, DataLoader, Sampler
 from .pipelines import Compose
-
-
+import glob
+from itertools import chain
 def _init_fn(worker_id):
     np.random.seed(666 + worker_id)
-    
-    
+
+
 def build_file_paths(img_roots):
     file_paths = []
     indices = []
@@ -32,17 +32,16 @@ def build_file_paths(img_roots):
 
 
 class CosalDataset(Dataset):
-    def __init__(self, cosal_paths, pipeline, sal_paths=None,**kwargs):
+    def __init__(self, cosal_paths, pipeline, sal_paths=None, **kwargs):
         img_paths, indices = build_file_paths(cosal_paths)
         self.samples = img_paths
         self.indices = indices
         self.len = len(img_paths)
         self.pipeline = Compose(pipeline)
-        
-        
+
         self.sal_img_len = 0
         if sal_paths:
-            sal_img_paths, sal_indices = build_file_paths(sal_paths)
+            sal_img_paths=list(chain(*[glob.glob(os.path.join(path,'img/**/*.*'),recursive=True) for path in sal_paths]))
             self.samples += sal_img_paths
 
             self.sal_img_len = len(sal_img_paths)
@@ -51,13 +50,29 @@ class CosalDataset(Dataset):
         image_path = self.samples[idx]
         group_path = os.path.dirname(image_path)
         sal = idx >= self.len
-        image_info = {"image_path": image_path, "sal": sal, "group_path": group_path}
+
+        gt_path = image_path.replace("/img", "/gt").replace("\\img", "\\gt").split('.')[0]+'.png'
+        assert os.path.exists(gt_path), f"{gt_path} is not exists"
+        gt = cv2.imread(gt_path, 0)
+        image_info = {
+            "image_path": image_path,
+            "sal": sal,
+            "group_path": group_path,
+            "gt": gt,
+        }
         return self.pipeline(image_info)
 
 
 class Cosal_Sampler(Sampler):
     def __init__(
-        self, indices, shuffle, batch_size, group_size, sal_batch_size=0, sal_len=0,**kwargs,
+        self,
+        indices,
+        shuffle,
+        batch_size,
+        group_size,
+        sal_batch_size=0,
+        sal_len=0,
+        **kwargs,
     ):
         self.indices = indices
         self.shuffle = shuffle
@@ -65,7 +80,6 @@ class Cosal_Sampler(Sampler):
         self.group_size = group_size
         self.sal_batch_size = sal_batch_size
         self.sal_len = sal_len
-
 
     def reset_batches_indices(self):
         groups = []
@@ -91,6 +105,7 @@ class Cosal_Sampler(Sampler):
             start_idx = end_idx
 
         sal_indices = list(range(self.indices[-1], self.indices[-1] + self.sal_len))
+
         if self.shuffle:
             np.random.shuffle(groups)
             np.random.shuffle(sal_indices)
@@ -139,19 +154,30 @@ class Cosal_Sampler(Sampler):
                     group_num.append(i)
                     i = 1
                     current = sample["group_path"]
-                cosal_img.append(sample['img'].unsqueeze(0))
+                cosal_img.append(sample["img"].unsqueeze(0))
+                cosal_gt.append(sample["gt"].unsqueeze(0))
             else:
                 if not entered_sal and i:
                     group_num.append(i)
                     entered_sal = True
-                sal_img.append(sample['img'].unsqueeze(0))
+                sal_img.append(sample["img"].unsqueeze(0))
+                sal_gt.append(sample["gt"].unsqueeze(0))
             path.append(sample["image_path"])
-        
-        cosal_img = torch.cat(cosal_img,0)
-        if sal_img:
-            sal_img = torch.cat(sal_img,0)
 
-        return {"group_num": group_num, "path": path,'cosal_img':cosal_img,'sal_img':sal_img}
+        cosal_img = torch.cat(cosal_img, 0)
+        cosal_gt = torch.cat(cosal_gt, 0)
+        if sal_img:
+            sal_img = torch.cat(sal_img, 0)
+            sal_gt = torch.cat(sal_gt, 0)
+
+        return {
+            "group_num": group_num,
+            "path": path,
+            "cosal_img": cosal_img,
+            "sal_img": sal_img,
+            "cosal_gt": cosal_gt,
+            "sal_gt": sal_gt,
+        }
 
 
 def build_dataloader(
@@ -159,18 +185,17 @@ def build_dataloader(
     batch_size,
     group_size=None,
     sal_batch_size=0,
-    sal_paths: list=None,
+    sal_paths: list = None,
     shuffle=True,
     num_workers=0,
     pin_memory=True,
     fix_seed=False,
     **kwargs,
 ):
-    
-    
     dataset = CosalDataset(
         cosal_paths=cosal_paths,
-        sal_paths=sal_paths,**kwargs,
+        sal_paths=sal_paths,
+        **kwargs,
     )
 
     cosal_sampler = Cosal_Sampler(
@@ -183,15 +208,14 @@ def build_dataloader(
     )
     if fix_seed:
         return DataLoader(
-        dataset=dataset,
-        batch_sampler=cosal_sampler,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        collate_fn=cosal_sampler.collate,
-        worker_init_fn=_init_fn,
-    )
-    
-        
+            dataset=dataset,
+            batch_sampler=cosal_sampler,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            collate_fn=cosal_sampler.collate,
+            worker_init_fn=_init_fn,
+        )
+
     return DataLoader(
         dataset=dataset,
         batch_sampler=cosal_sampler,
@@ -226,7 +250,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     from pprint import pprint
 
-    path = [r"C:\Users\Administrator\Desktop\CoSal2015"]
+    path = [r"/root/autodl-tmp/Dataset/COCO9213"]
     data_loader = build_dataloader(
         cosal_paths=path,
         sal_paths=path,
