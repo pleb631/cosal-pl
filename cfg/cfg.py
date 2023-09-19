@@ -9,7 +9,7 @@ train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="RandomFlip"),
     dict(type="Resize", size=(256, 256)),
-    dict(type="RandomCrop",crop_size=(224, 224)),
+    dict(type="RandomCrop", crop_size=(224, 224)),
     dict(type="Normalize", **img_norm_cfg),
     dict(type="ImageToTensor", keys=["img"]),
 ]
@@ -32,7 +32,11 @@ trian_data = dict(
     pipeline=train_pipeline,
 )
 val_data = dict(
-    cosal_paths=["/root/project/CoRP/Dataset/CoCA","/root/project/CoRP/Dataset/CoSal2015","/root/project/CoRP/Dataset/CoSOD3k"],
+    cosal_paths=[
+        "/root/project/CoRP/Dataset/CoCA",
+        "/root/project/CoRP/Dataset/CoSal2015",
+        "/root/project/CoRP/Dataset/CoSOD3k",
+    ],
     batch_size=1,
     group_size=5,
     sal_batch_size=0,
@@ -46,15 +50,15 @@ train_set = dict(
     lr=1e-4,
     lr_scheduler="multistep",
     gamma=0.1,
-    milestones=[50,60],
+    milestones=[50, 60],
 )
 model = dict(
     backbone=dict(type="VGG16", pretrained=True),
-    aux_head=dict(type="sal_Decoder",loss=dict(type="IoU_loss")),
+    aux_head=dict(type="sal_Decoder", loss=dict(type="IoU_loss")),
     neck=dict(type="neck"),
-    head = dict(type="cosal_decoder",loss=dict(type="IoU_loss")),
+    head=dict(type="cosal_decoder", loss=dict(type="IoU_loss")),
     train_set=train_set,
 )
 
 
-workdir="workdir/basemodel"
+workdir = "workdir/basemodel"

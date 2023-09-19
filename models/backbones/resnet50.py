@@ -2,28 +2,28 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from torchvision.models import vgg16_bn
+from torchvision.models import resnet50
 from collections import OrderedDict
 from ..builder import BACKBONES
 from .base_backbone import BaseBackbone
 
 
 @BACKBONES.register_module()
-class VGG16(BaseBackbone):
+class resnet50(BaseBackbone):
     def __init__(self, pretrained=False):
         super().__init__()
 
-        bb_net = list(vgg16_bn(pretrained=pretrained).children())[0]
+        bb_net = list(resnet50(pretrained=True).children())
         bb_convs = OrderedDict(
             {
-                "conv1": bb_net[:6],
-                "conv2": bb_net[6:13],
-                "conv3": bb_net[13:23],
-                "conv4": bb_net[23:33],
-                "conv5": bb_net[33:43],
+                'conv1': nn.Sequential(*bb_net[:3]),
+                'conv2': bb_net[4],
+                'conv3': bb_net[5],
+                'conv4': bb_net[6],
+                'conv5': bb_net[7],
             }
         )
-        self.ics = [512, 512, 256, 128, 64]
+        self.ics = [2048, 1024, 512, 256, 64]
         self.encoder = nn.Sequential(bb_convs)
 
     def forward(self, x):

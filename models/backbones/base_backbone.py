@@ -7,8 +7,8 @@ import torch.nn as nn
 
 import lightning.pytorch as pl
 
-class BaseBackbone(nn.Module):
 
+class BaseBackbone(nn.Module):
     @abstractmethod
     def forward(self, x):
         """Forward function.
@@ -17,8 +17,7 @@ class BaseBackbone(nn.Module):
             x (Tensor | tuple[Tensor]): x could be a torch.Tensor or a tuple of
                 torch.Tensor, containing input data for forward computation.
         """
-        
-    
+
     def training_step(self, batch):
         # training_step defines the train loop.
         x, y = batch
