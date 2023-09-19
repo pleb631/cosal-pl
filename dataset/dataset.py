@@ -159,10 +159,13 @@ class Cosal_Sampler(Sampler):
             else:
                 if not entered_sal and i:
                     group_num.append(i)
+                    i=0
                     entered_sal = True
                 sal_img.append(sample["img"].unsqueeze(0))
                 sal_gt.append(sample["gt"].unsqueeze(0))
             path.append(sample["image_path"])
+        if i>0:
+            group_num.append(i)
 
         cosal_img = torch.cat(cosal_img, 0)
         cosal_gt = torch.cat(cosal_gt, 0)

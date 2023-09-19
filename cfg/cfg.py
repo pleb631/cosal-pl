@@ -23,7 +23,7 @@ trian_data = dict(
     num_workers=2,
     pipeline=train_pipeline,
 )
-test_data = dict(
+val_data = dict(
     cosal_paths=[r"D:/Dataset/Dataset/COCO9213"],
     batch_size=1,
     group_size=5,

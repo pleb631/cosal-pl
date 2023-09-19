@@ -36,6 +36,7 @@ class BaseSEG(pl.LightningModule):
         cosal_im = batch["cosal_img"]
         sal_im = batch["sal_img"]
         group_num = batch["group_num"]
+        assert sum(group_num)==cosal_im.shape[0],group_num
         cosal_batch = cosal_im.shape[0]
         if isinstance(sal_im, torch.Tensor):
             img = torch.cat((cosal_im, sal_im), dim=0)
@@ -47,15 +48,19 @@ class BaseSEG(pl.LightningModule):
         
         SISMs = ALL_SISMs[:cosal_batch, ...]
         SISMs_sup = ALL_SISMs[cosal_batch:, ...]
+        maps = batch["cosal_gt"]
+        maps = maps.unsqueeze(1).float()
         aux_loss = self.aux_head.get_loss(SISMs_sup, batch["sal_gt"])
             
         cmprs_feat = self.neck(feat,cosal_batch)
-        pred = self.head(feat,cmprs_feat,SISMs,cosal_batch,group_num)
-        cosal_loss = self.head(pred,batch["cosal_gt"])
+        
+        pred_list,map = self.head(feat,cmprs_feat,SISMs,maps,cosal_batch,group_num)
+        #print(len(pred),pred[-1].shape)
+        cosal_loss = self.head.get_loss(pred_list,batch["cosal_gt"])
         loss = 0.9*cosal_loss+0.1*aux_loss
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("cosal_loss", cosal_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-        self.log("aux_loss", aux_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("cosal_loss", cosal_loss, on_step=True,prog_bar=True, logger=True)
+        self.log("aux_loss", aux_loss, on_step=True,prog_bar=True, logger=True)
         return loss
     
     
@@ -63,15 +68,21 @@ class BaseSEG(pl.LightningModule):
 
         img = batch["cosal_img"]
         group_num = batch["group_num"]
+        assert sum(group_num)==img.shape[0]
         cosal_batch = img.shape[0]
         feat = self.backbone(img)
         SISMs = self.aux_head(feat)
               
         cmprs_feat = self.neck(feat,cosal_batch)
-        pred = self.head(feat,cmprs_feat,SISMs,cosal_batch,group_num)
-        cosal_loss = self.head(pred,batch["cosal_gt"])
+        
+        pred = SISMs
+        for _ in range(3):
+            
+            pred_list,map = self.head(feat,cmprs_feat,SISMs,pred,cosal_batch,group_num)
+            pred = map
+        cosal_loss = self.head.get_loss(pred_list[-1:],batch["cosal_gt"])
         val_iou = 1-cosal_loss
-        self.log("val_iou", val_iou, on_epoch=True, prog_bar=True, logger=True)
+        self.log("val_iou", val_iou, on_epoch=True, logger=True)
         return 0
 
     def predict_step(self, batch, *args,**kwargs):
