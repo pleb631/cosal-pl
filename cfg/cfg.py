@@ -23,6 +23,15 @@ trian_data = dict(
     num_workers=8,
     pipeline=train_pipeline,
 )
-
+test_data = dict(
+    cosal_paths=[r"C:\Users\Administrator\Desktop\CoSal2015"],
+    batch_size=1,
+    group_size=2,
+    sal_batch_size=1,
+    sal_paths=[r"C:\Users\Administrator\Desktop\CoSal2015"],
+    shuffle=True,
+    num_workers=2,
+    pipeline=train_pipeline,
+)
 train_set = dict(weight_decay=1e-6,lr=1e-4,lr_scheduler="cosine",T_max=10,decay_rate=0.5,min_lr=1e-6)
 model = dict(backbone=dict(type="VGG16",pretrained=True), head=dict(type="sal_Decoder"),train_set=train_set)
