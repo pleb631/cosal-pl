@@ -9,10 +9,10 @@ from .base_backbone import BaseBackbone
 
 @BACKBONES.register_module()
 class VGG16(BaseBackbone):
-    def __init__(self,):
+    def __init__(self,pretrained=False):
         super().__init__()
     
-        bb_net = list(vgg16_bn(pretrained=False).children())[0]
+        bb_net = list(vgg16_bn(pretrained=pretrained).children())[0]
         bb_convs = OrderedDict({
             'conv1': bb_net[:6],
             'conv2': bb_net[6:13],

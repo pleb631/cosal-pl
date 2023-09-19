@@ -25,4 +25,4 @@ trian_data = dict(
 )
 
 train_set = dict(weight_decay=1e-6,lr=1e-4,lr_scheduler="cosine",T_max=10,decay_rate=0.5,min_lr=1e-6)
-model = dict(backbone=dict(type="VGG16"), head=dict(type="sal_Decoder"),train_set=train_set)
+model = dict(backbone=dict(type="VGG16",pretrained=True), head=dict(type="sal_Decoder"),train_set=train_set)
