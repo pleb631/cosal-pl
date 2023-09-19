@@ -123,6 +123,12 @@ class BaseSEG(pl.LightningModule):
                 {
                     "params": self.head.parameters(),
                 },
+                {
+                    "params": self.aux_head.parameters(),
+                },
+                {
+                    "params": self.neck.parameters(),
+                },
                 {"params": self.backbone.parameters(), "lr": 1e-5},
             ],
             lr=self.train_set["lr"],
