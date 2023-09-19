@@ -42,6 +42,7 @@ class CosalDataset(Dataset):
         self.sal_img_len = 0
         if sal_paths:
             sal_img_paths=list(chain(*[glob.glob(os.path.join(path,'img/**/*.*'),recursive=True) for path in sal_paths]))
+            sal_img_paths+=list(chain(*[glob.glob(os.path.join(path,'image/**/*.*'),recursive=True) for path in sal_paths]))
             self.samples += sal_img_paths
 
             self.sal_img_len = len(sal_img_paths)
@@ -51,7 +52,7 @@ class CosalDataset(Dataset):
         group_path = os.path.dirname(image_path)
         sal = idx >= self.len
 
-        gt_path = image_path.replace("/img", "/gt").replace("\\img", "\\gt").split('.')[0]+'.png'
+        gt_path = image_path.replace("/img", "/gt").replace("/image", "/mask").split('.')[0]+'.png'
         assert os.path.exists(gt_path), f"{gt_path} is not exists"
         gt = cv2.imread(gt_path, 0)
         image_info = {
