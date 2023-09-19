@@ -5,4 +5,5 @@ from .builder import (BACKBONES, HEADS, LOSSES, NECKS,
                       build_neck)
 from .heads import *
 from .necks import *
+from .losses import *
 from .base_seg_model import BaseSEG

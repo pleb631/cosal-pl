@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .compose import Compose
 from .loading import LoadImageFromFile
-from .transformers import Resize, ImageToTensor, Normalize, Albumentation
+from .transformers import Resize, ImageToTensor, Normalize, Albumentation,RandomFlip,RandomCrop
 
 __all__ = [
     "Compose",
@@ -10,4 +10,6 @@ __all__ = [
     "ImageToTensor",
     "Normalize",
     "Albumentation",
+    "RandomFlip",
+    "RandomCrop"
 ]

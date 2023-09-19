@@ -1,7 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 
-from ..builder import HEADS
+from ..builder import HEADS,build_loss
 import torch
 
 
@@ -34,29 +34,13 @@ class EnLayer(nn.Module):
         x = self.enlayer(x)
         return x
     
-
-
-def IoU_loss(preds, gt):
-    #preds = torch.cat(preds_list, dim=1)
-    preds = preds.squeeze(1)
-    N, H, W = preds.shape
-    min_tensor = torch.where(preds < gt, preds, gt)    # shape=[N, C, H, W]
-    max_tensor = torch.where(preds > gt, preds, gt)    # shape=[N, C, H, W]
-    min_sum = min_tensor.view(N, H * W).sum(dim=1)  # shape=[N, C]
-    max_sum = max_tensor.view(N, H * W).sum(dim=1)  # shape=[N, C]
-    loss = 1 - (min_sum / max_sum).mean()
-    '''loss_f = nn.MSELoss()
-    loss = 0.
-    for pred in preds_list:
-        loss += loss_f(pred, gt)
-    loss = loss/len(preds_list)'''
-
-    return loss 
     
 @HEADS.register_module()
 class sal_Decoder(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels,loss=None,**kwargs):
         super(sal_Decoder, self).__init__()
+        
+        
 
         lat_layers = []
         for idx in range(5):
@@ -83,6 +67,11 @@ class sal_Decoder(nn.Module):
             nn.Sigmoid()
         )
 
+        
+        self.loss = build_loss(loss)
+        
+        
+        
     def forward(self, feat_list ):
 
         feat_top = self.top_layer(feat_list[-1])
@@ -98,7 +87,7 @@ class sal_Decoder(nn.Module):
         return out
     
     def get_loss(self,sal,gt):
-        return IoU_loss(sal,gt)
+        return self.loss(sal,gt)
 
     def _upsample_add(self, x, y):
         [_, _, H, W] = y.size()

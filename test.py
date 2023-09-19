@@ -34,12 +34,12 @@ def main():
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
 
-    model = BaseSEG(**cfg.model)
+    model = BaseSEG(workdir=cfg.workdir,**cfg.model)
     
     trainer = pl.Trainer()
     
     #model = model.load_from_checkpoint(args.ckpt)
-    datasets = build_dataloader(**cfg.test_data)
+    datasets = build_dataloader(**cfg.val_data)
     trainer = pl.Trainer(accelerator="gpu")
     trainer.predict(model, dataloaders=datasets,ckpt_path=args.ckpt)
     

@@ -1,7 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 
-from ..builder import HEADS
+from ..builder import HEADS,build_loss
 import torch
 
 
@@ -11,19 +11,6 @@ def resize(input, target_size=(224, 224)):
         input, (target_size[0], target_size[1]), mode="bilinear", align_corners=True
     )
     
-def IoU_loss(preds_list, gt):
-    preds = torch.cat(preds_list, dim=1)
-    gt = gt.unsqueeze(1)
-    N,C,H,W = preds.shape
-    min_tensor = torch.where(preds < gt, preds, gt)    # shape=[N, C, H, W]
-    max_tensor = torch.where(preds > gt, preds, gt)    # shape=[N, C, H, W]
-    min_sum = min_tensor.view(N,C, H * W).sum(dim=2)  # shape=[N, C]
-    max_sum = max_tensor.view(N,C, H * W).sum(dim=2)  # shape=[N, C]
-    loss = 1 - (min_sum / max_sum).mean()
-
-
-    return loss 
-
 
 class Res(nn.Module):
     def __init__(self, in_channel):
@@ -165,7 +152,7 @@ class Decoder_Block(nn.Module):
 
 @HEADS.register_module()
 class cosal_decoder(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, in_channels,loss):
         super(cosal_decoder, self).__init__()
         
         self.Co6 = Cosal_Module(7, 7)
@@ -182,8 +169,11 @@ class cosal_decoder(nn.Module):
         self.get_pred_4 = Prediction(32)
         self.refine_2 = Decoder_Block(in_channels[3])
         self.refine_1 = Decoder_Block(in_channels[4])
+        
+    
+        self.loss = build_loss(loss)
 
-    def forward(self, feat,cmprs_feat,SISMs,maps,bs_group,group_num):
+    def forward(self, feat,cmprs_feat,SISMs,maps,group_num):
         conv3_cmprs,conv4_cmprs,conv5_cmprs,conv6_cmprs = cmprs_feat
         conv1_2,conv2_2 = feat[:2]
         
@@ -197,15 +187,23 @@ class cosal_decoder(nn.Module):
         feat_34 = self.merge_co_34(cosal_feat_3 + resize(feat_45, [56, 56]))  # shape=[N, 128, 56, 56]
         cosal_map_4 = self.get_pred_4(feat_34)  # shape=[N, 1, 56, 56]
         # Obtain co-saliency maps with size of 224*224 (i.e., "cosal_map_1") by progressively upsampling.
-        feat_23, cosal_map_2 = self.refine_2(conv2_2[:bs_group, ...], cosal_map_4, SISMs, feat_34)
-        _, cosal_map_1 = self.refine_1(conv1_2[:bs_group, ...], cosal_map_4, SISMs, feat_23)
+        feat_23, cosal_map_2 = self.refine_2(conv2_2[:sum(group_num), ...], cosal_map_4, SISMs, feat_34)
+        _, cosal_map_1 = self.refine_1(conv1_2[:sum(group_num), ...], cosal_map_4, SISMs, feat_23)
 
 
         return [resize(cosal_map_4),  resize(cosal_map_2), resize(cosal_map_1)],cosal_map_1 
+    
+    
+    def predict(self,feat,cmprs_feat,SISMs,group_num):
+        pred = SISMs
+        for _ in range(3):
+            pred_list,map =self(feat,cmprs_feat,SISMs,pred,group_num)
+            pred = map
+        return pred_list[-1]
         
         
 
     def get_loss(self,sal,gt):
-        return IoU_loss(sal,gt)
+        return self.loss(sal,gt)
 
 

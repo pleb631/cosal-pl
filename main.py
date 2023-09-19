@@ -5,7 +5,7 @@ from mmcv import Config,DictAction
 from dataset import build_dataloader
 from models import BaseSEG
 import lightning.pytorch as pl
-
+import os
 
 
 
@@ -35,7 +35,7 @@ def main():
     
     datasets = build_dataloader(**cfg.trian_data)
     val_datasets = build_dataloader(**cfg.val_data)
-    model = BaseSEG(**cfg.model)
+    model = BaseSEG(workdir=cfg.workdir,**cfg.model)
     # ckpt_callback = pl.callbacks.ModelCheckpoint(
     # monitor='loss',
     # save_top_k=1,
@@ -47,17 +47,17 @@ def main():
     
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
      monitor='loss',
-     dirpath='workdir/cosal_model/',
+     dirpath=cfg.workdir,
      filename='sample-{epoch:02d}-{iou:.2f}',
      every_n_epochs=1
  )  
     if args.local_log:
-        logger = pl.loggers.csv_logs.CSVLogger(save_dir="workdir",name="basemodel")
+        logger = pl.loggers.csv_logs.CSVLogger(save_dir=os.path.dirname(cfg.workdir),name=os.path.basename(cfg.workdir))
     else:
-        logger=pl.loggers.TensorBoardLogger(save_dir="workdir", name="basemodel")
+        logger=pl.loggers.TensorBoardLogger(save_dir=os.path.dirname(cfg.workdir), name=os.path.basename(cfg.workdir))
     
     lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
-    trainer = pl.Trainer(max_epochs=10,callbacks=[lr_monitor,checkpoint_callback],logger=logger)
+    trainer = pl.Trainer(max_epochs=70,callbacks=[lr_monitor,checkpoint_callback],logger=logger)
     trainer.fit(model=model, train_dataloaders=datasets,val_dataloaders=val_datasets)
     print("done!!")
 
