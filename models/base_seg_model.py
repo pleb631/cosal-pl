@@ -93,7 +93,7 @@ class BaseSEG(pl.LightningModule):
         
         cosal_loss = self.head.get_loss(pred,batch["cosal_gt"])
 
-        self.log("val_loss",cosal_loss, on_epoch=True, logger=True,prog_bar=True)
+        self.log("acc",1-cosal_loss, on_epoch=True, logger=True,prog_bar=True)
         return 0
 
     def predict_step(self, batch, *args,**kwargs):

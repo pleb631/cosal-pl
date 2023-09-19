@@ -46,10 +46,11 @@ def main():
     #            mode = 'min')
     
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
-     monitor='loss',
+     monitor='acc',
      dirpath=cfg.workdir,
      filename='sample-{epoch:02d}-{iou:.2f}',
-     every_n_epochs=1
+     every_n_epochs=1,
+     mode="max"
  )  
     if args.local_log:
         logger = pl.loggers.csv_logs.CSVLogger(save_dir=os.path.dirname(cfg.workdir),name=os.path.basename(cfg.workdir))
