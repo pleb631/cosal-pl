@@ -1,7 +1,4 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -19,50 +16,92 @@ def resize(input, target_size=(224, 224)):
 
 
 class BaseSEG(pl.LightningModule):
-    def __init__(self, backbone, head, train_set, **kwargs):
+    def __init__(self, backbone, aux_head, neck,head,train_set, **kwargs):
         super().__init__()
         self.backbone = builder.build_Seg_model(backbone)
-        head["in_channels"] = self.backbone.ics[::-1]
-        self.head = builder.build_head(head)
+        aux_head["in_channels"] = self.backbone.ics[::-1]
+        neck["in_channels"] = self.backbone.ics
+        head["in_channels"] = self.backbone.ics
+        
+        
+        self.aux_head = builder.build_head(aux_head)
+        
+        self.neck = builder.build_neck(neck)
         self.train_set = train_set
+        self.head = builder.build_head(head)
 
     # @abstractmethod
     def training_step(self, batch, **kwargs):
         """Defines the computation performed at training."""
         cosal_im = batch["cosal_img"]
         sal_im = batch["sal_img"]
+        group_num = batch["group_num"]
         cosal_batch = cosal_im.shape[0]
         if isinstance(sal_im, torch.Tensor):
             img = torch.cat((cosal_im, sal_im), dim=0)
         else:
             img = cosal_im
-        img = sal_im
-        out = self.backbone(img)
-        sals = self.head(out)
-        SISMs = sals  # [cosal_batch:, ...]
-        loss = self.head.get_loss(SISMs, batch["sal_gt"])
+            
+        feat = self.backbone(img)
+        ALL_SISMs = self.aux_head(feat)
+        
+        SISMs = ALL_SISMs[:cosal_batch, ...]
+        SISMs_sup = ALL_SISMs[cosal_batch:, ...]
+        aux_loss = self.aux_head.get_loss(SISMs_sup, batch["sal_gt"])
+            
+        cmprs_feat = self.neck(feat,cosal_batch)
+        pred = self.head(feat,cmprs_feat,SISMs,cosal_batch,group_num)
+        cosal_loss = self.head(pred,batch["cosal_gt"])
+        loss = 0.9*cosal_loss+0.1*aux_loss
         self.log("loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("cosal_loss", cosal_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("aux_loss", aux_loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
         return loss
+    
+    
+    def validation_step(self,batch,*args,**kwargs):
+
+        img = batch["cosal_img"]
+        group_num = batch["group_num"]
+        cosal_batch = img.shape[0]
+        feat = self.backbone(img)
+        SISMs = self.aux_head(feat)
+              
+        cmprs_feat = self.neck(feat,cosal_batch)
+        pred = self.head(feat,cmprs_feat,SISMs,cosal_batch,group_num)
+        cosal_loss = self.head(pred,batch["cosal_gt"])
+        val_iou = 1-cosal_loss
+        self.log("val_iou", val_iou, on_epoch=True, prog_bar=True, logger=True)
+        return 0
 
     def predict_step(self, batch, *args,**kwargs):
         import os
 
-        img = batch["cosal_img"][0:1, ...]
-        path = batch["path"]
-        im = cv2.imread(path[0])
-        out = self.backbone(img)
-        sals = self.head(out).detach().cpu()
-        sal = resize(sals, im.shape[:2]).squeeze().numpy()
-        # 把sal和im加权到一起并输出
-        #sal = sal * 255
-        sal = sal.astype("uint8")
-        #sal = cv2.applyColorMap(sal, cv2.COLORMAP_JET)
-        im[sal>0.5]=255
-        cv2.imwrite(f"workdir/{os.path.basename(path[0])}", im)
+        img = batch["cosal_img"]
+        group_num = batch["group_num"]
+        paths = batch["path"]
+        #im = cv2.imread(path)
+        
+        cosal_batch = img.shape[0]
+        feat = self.backbone(img)
+        SISMs = self.aux_head(feat)
+        
+              
+        cmprs_feat = self.neck(feat,cosal_batch)
+        pred = self.head(feat,cmprs_feat,SISMs,cosal_batch,group_num)
+              
+        sals = pred.detach().cpu()
+        for sal,path in zip(sals,paths):
+            im = cv2.imread(path)
+            
+            sal = resize(sal, im.shape[:2]).squeeze().numpy()
+            sal = sal * 255
+            sal = sal.astype("uint8")
+            #sal = cv2.applyColorMap(sal, cv2.COLORMAP_JET)
+            im[sal>127,0]=255
+            os.makedirs("workdir", exist_ok=True)
+            cv2.imwrite(f"workdir/{os.path.basename(path)}", im)
 
-    # @abstractmethod
-    # def validation_step(self, batch, **kwargs)
-    #     """Defines the computation performed at training."""
 
     def configure_optimizers(self):
         if "weight_decay" in self.train_set:
@@ -88,6 +127,13 @@ class BaseSEG(pl.LightningModule):
                     optimizer,
                     step_size=self.train_set["step"],
                     gamma=self.train_set["decay_rate"],
+                )
+            
+            elif self.train_set["lr_scheduler"] == "multistep":
+                scheduler = lrs.MultiStepLR(
+                    optimizer,
+                    milestones=self.train_set["milestones"],
+                    gamma=self.train_set["gamma"],
                 )
             elif self.train_set["lr_scheduler"] == "cosine":
                 scheduler = lrs.CosineAnnealingLR(

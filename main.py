@@ -34,13 +34,8 @@ def main():
         cfg.merge_from_dict(args.cfg_options)
     
     datasets = build_dataloader(**cfg.trian_data)
+    val_datasets = build_dataloader(**cfg.val_data)
     model = BaseSEG(**cfg.model)
-    # from pprint import pprint
-    # for _ in range(1):
-    #     for i in datasets:
-    #         pprint(i['sal_img'].shape)
-    #         break
-    
     # ckpt_callback = pl.callbacks.ModelCheckpoint(
     # monitor='loss',
     # save_top_k=1,
@@ -52,8 +47,8 @@ def main():
     
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
      monitor='loss',
-     dirpath='workdir/my_model/',
-     filename='sample-mnist-{epoch:02d}-{loss:.2f}',
+     dirpath='workdir/cosal_model/',
+     filename='sample-{epoch:02d}-{iou:.2f}',
      every_n_epochs=1
  )  
     if args.local_log:
@@ -63,7 +58,7 @@ def main():
     
     lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval='epoch')
     trainer = pl.Trainer(max_epochs=10,callbacks=[lr_monitor,checkpoint_callback],logger=logger)
-    trainer.fit(model=model, train_dataloaders=datasets)
+    trainer.fit(model=model, train_dataloaders=datasets,val_dataloaders=val_datasets)
     print("done!!")
 
 
