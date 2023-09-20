@@ -39,7 +39,7 @@ class BaseSEG(pl.LightningModule):
         cosal_im = batch["cosal_img"]
         sal_im = batch["sal_img"]
         group_num = batch["group_num"]
-        maps = batch["cosal_gt"].unsqueeze(1).float()
+        maps = batch["cosal_gt"]
         cosal_batch = cosal_im.shape[0]
         assert sum(group_num) == cosal_im.shape[0], group_num
 
@@ -56,6 +56,7 @@ class BaseSEG(pl.LightningModule):
         pred_list, _ = self.head(feat, cmprs_feat, SISMs, maps, group_num)
 
         cosal_loss = self.head.get_loss(pred_list, batch["cosal_gt"])
+
         self.log("cosal", cosal_loss, on_step=True, prog_bar=True, logger=True)
 
         loss = cosal_loss * 0.9
@@ -84,7 +85,7 @@ class BaseSEG(pl.LightningModule):
 
         cosal_loss = self.head.get_loss(pred, batch["cosal_gt"])
 
-        self.log("acc", 1 - cosal_loss, on_epoch=True, logger=True, prog_bar=True)
+        self.log("val_acc", 1 - cosal_loss, on_epoch=True, logger=True, prog_bar=True)
         return 0
 
     def predict_step(self, batch, *args, **kwargs):
@@ -108,10 +109,10 @@ class BaseSEG(pl.LightningModule):
             sal = sal * 255
             sal = sal.astype("uint8")
             # sal = cv2.applyColorMap(sal, cv2.COLORMAP_JET)
-            im[sal > 127, 0] = 255
+            # im[sal>127,0]=255
             save_path = (Path(self.workdir) / "pred").joinpath(*Path(path).parts[-4:])
             save_path.parent.mkdir(exist_ok=True, parents=True)
-            cv2.imwrite(str(save_path), im)
+            cv2.imwrite(str(save_path).split(".")[0] + ".png", sal)
 
     def configure_optimizers(self):
         if "weight_decay" in self.train_set:
@@ -129,7 +130,7 @@ class BaseSEG(pl.LightningModule):
                 {
                     "params": self.neck.parameters(),
                 },
-                {"params": self.backbone.parameters(), "lr": 1e-5},
+                {"params": self.backbone.parameters(), "lr": 1e-6},
             ],
             lr=self.train_set["lr"],
             weight_decay=weight_decay,

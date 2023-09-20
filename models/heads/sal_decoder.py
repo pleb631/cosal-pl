@@ -1,7 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 
-from ..builder import HEADS, build_loss
+from ..builder import HEADS,build_loss
 import torch
 
 
@@ -33,12 +33,14 @@ class EnLayer(nn.Module):
     def forward(self, x):
         x = self.enlayer(x)
         return x
-
-
+    
+    
 @HEADS.register_module()
 class sal_Decoder(nn.Module):
-    def __init__(self, in_channels, loss=None, **kwargs):
+    def __init__(self, in_channels,loss=None,**kwargs):
         super(sal_Decoder, self).__init__()
+        
+        
 
         lat_layers = []
         for idx in range(5):
@@ -52,7 +54,7 @@ class sal_Decoder(nn.Module):
 
         self.top_layer = nn.Sequential(
             nn.Conv2d(in_channels[-1], 32, kernel_size=3, stride=1, padding=1),
-            # nn.BatchNorm2d(32),
+            #nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
         )
 
@@ -62,12 +64,16 @@ class sal_Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(32, 32, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(32, 1, kernel_size=1, stride=1, padding=0),
-            nn.Sigmoid(),
+            nn.Sigmoid()
         )
 
+        
         self.loss = build_loss(loss)
+        
+        
+        
+    def forward(self, feat_list ):
 
-    def forward(self, feat_list):
         feat_top = self.top_layer(feat_list[-1])
 
         p = feat_top
@@ -76,13 +82,14 @@ class sal_Decoder(nn.Module):
             p = self.dec_layers[idx](p)
 
         out = self.out_layer(p)
-        out = F.interpolate(out, (224, 224), mode="bilinear", align_corners=True)
+        #out = F.interpolate(out, (224, 224), mode='bilinear', align_corners=True)
 
         return out
-
-    def get_loss(self, sal, gt):
-        return self.loss(sal, gt)
+    
+    def get_loss(self,sal,gt):
+        return self.loss(sal,gt)
 
     def _upsample_add(self, x, y):
         [_, _, H, W] = y.size()
-        return F.interpolate(x, size=(H, W), mode="bilinear") + y
+        return F.interpolate(
+            x, size=(H, W), mode='bilinear') + y

@@ -14,7 +14,6 @@ class IoU_loss(nn.Module):
         if isinstance(preds, list):
             preds = torch.cat(preds, dim=1)
 
-        gt = gt.unsqueeze(1)
         N, C, H, W = preds.shape
         min_tensor = torch.where(preds < gt, preds, gt)  # shape=[N, C, H, W]
         max_tensor = torch.where(preds > gt, preds, gt)  # shape=[N, C, H, W]

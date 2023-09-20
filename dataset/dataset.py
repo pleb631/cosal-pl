@@ -9,6 +9,8 @@ from torch.utils.data import Dataset, DataLoader, Sampler
 from .pipelines import Compose
 import glob
 from itertools import chain
+
+
 def _init_fn(worker_id):
     np.random.seed(666 + worker_id)
 
@@ -41,8 +43,22 @@ class CosalDataset(Dataset):
 
         self.sal_img_len = 0
         if sal_paths:
-            sal_img_paths=list(chain(*[glob.glob(os.path.join(path,'img/**/*.*'),recursive=True) for path in sal_paths]))
-            sal_img_paths+=list(chain(*[glob.glob(os.path.join(path,'image/**/*.*'),recursive=True) for path in sal_paths]))
+            sal_img_paths = list(
+                chain(
+                    *[
+                        glob.glob(os.path.join(path, "img/**/*.*"), recursive=True)
+                        for path in sal_paths
+                    ]
+                )
+            )
+            sal_img_paths += list(
+                chain(
+                    *[
+                        glob.glob(os.path.join(path, "image/**/*.*"), recursive=True)
+                        for path in sal_paths
+                    ]
+                )
+            )
             self.samples += sal_img_paths
 
             self.sal_img_len = len(sal_img_paths)
@@ -52,9 +68,12 @@ class CosalDataset(Dataset):
         group_path = os.path.dirname(image_path)
         sal = idx >= self.len
 
-        gt_path = image_path.replace("/img", "/gt").replace("/image", "/mask").split('.')[0]+'.png'
+        gt_path = (
+            image_path.replace("/img", "/gt").replace("/image", "/mask").split(".")[0]
+            + ".png"
+        )
         assert os.path.exists(gt_path), f"{gt_path} is not exists"
-        gt = cv2.imread(gt_path, 0)
+        gt = cv2.imread(gt_path, 0).astype(np.float32)
         image_info = {
             "image_path": image_path,
             "sal": sal,
@@ -147,7 +166,7 @@ class Cosal_Sampler(Sampler):
             if not sample["sal"]:
                 if current == sample["group_path"]:
                     i += 1
-                    if i >= self.group_size:
+                    if self.group_size != None and i >= self.group_size:
                         group_num.append(i)
                         i = 0
                         current = None
@@ -160,19 +179,19 @@ class Cosal_Sampler(Sampler):
             else:
                 if not entered_sal and i:
                     group_num.append(i)
-                    i=0
+                    i = 0
                     entered_sal = True
                 sal_img.append(sample["img"].unsqueeze(0))
                 sal_gt.append(sample["gt"].unsqueeze(0))
             path.append(sample["image_path"])
-        if i>0:
+        if i > 0:
             group_num.append(i)
 
         cosal_img = torch.cat(cosal_img, 0)
-        cosal_gt = torch.cat(cosal_gt, 0)
+        cosal_gt = torch.cat(cosal_gt, 0).unsqueeze(1)
         if sal_img:
             sal_img = torch.cat(sal_img, 0)
-            sal_gt = torch.cat(sal_gt, 0)
+            sal_gt = torch.cat(sal_gt, 0).unsqueeze(1)
 
         return {
             "group_num": group_num,

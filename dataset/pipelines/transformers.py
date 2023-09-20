@@ -6,15 +6,15 @@ import numpy as np
 import cv2
 import torch
 import warnings
-
+import random
 from ..builder import PIPELINES
 
 try:
     import albumentations
 except ImportError:
     albumentations = None
-    
-    
+
+
 @PIPELINES.register_module()
 class Resize(object):
     """Resize images.
@@ -39,14 +39,11 @@ class Resize(object):
             `cv2` and `pillow`. Default: `cv2`.
     """
 
-    def __init__(self,
-                 size,
-                 interpolation='bilinear',
-                 adaptive_side='short',
-                 backend='cv2'):
-        assert isinstance(size, int) or (isinstance(size, tuple)
-                                         and len(size) == 2)
-        assert adaptive_side in {'short', 'long', 'height', 'width'}
+    def __init__(
+        self, size, interpolation="bilinear", adaptive_side="short", backend="cv2"
+    ):
+        assert isinstance(size, int) or (isinstance(size, tuple) and len(size) == 2)
+        assert adaptive_side in {"short", "long", "height", "width"}
 
         self.adaptive_side = adaptive_side
         self.adaptive_resize = False
@@ -57,21 +54,34 @@ class Resize(object):
             assert size[0] > 0 and (size[1] > 0 or size[1] == -1)
             if size[1] == -1:
                 self.adaptive_resize = True
-        if backend not in ['cv2', 'pillow']:
-            raise ValueError(f'backend: {backend} is not supported for resize.'
-                             'Supported backends are "cv2", "pillow"')
-        if backend == 'cv2':
-            assert interpolation in ('nearest', 'bilinear', 'bicubic', 'area',
-                                     'lanczos')
+        if backend not in ["cv2", "pillow"]:
+            raise ValueError(
+                f"backend: {backend} is not supported for resize."
+                'Supported backends are "cv2", "pillow"'
+            )
+        if backend == "cv2":
+            assert interpolation in (
+                "nearest",
+                "bilinear",
+                "bicubic",
+                "area",
+                "lanczos",
+            )
         else:
-            assert interpolation in ('nearest', 'bilinear', 'bicubic', 'box',
-                                     'lanczos', 'hamming')
+            assert interpolation in (
+                "nearest",
+                "bilinear",
+                "bicubic",
+                "box",
+                "lanczos",
+                "hamming",
+            )
         self.size = size
         self.interpolation = interpolation
         self.backend = backend
 
     def _resize_img(self, results):
-        for key in results.get('img_fields', ['img']):
+        for key in results.get("img_fields", ["img"]):
             img = results[key]
             ignore_resize = False
             if self.adaptive_resize:
@@ -79,19 +89,21 @@ class Resize(object):
                 target_size = self.size[0]
 
                 condition_ignore_resize = {
-                    'short': min(h, w) == target_size,
-                    'long': max(h, w) == target_size,
-                    'height': h == target_size,
-                    'width': w == target_size
+                    "short": min(h, w) == target_size,
+                    "long": max(h, w) == target_size,
+                    "height": h == target_size,
+                    "width": w == target_size,
                 }
 
                 if condition_ignore_resize[self.adaptive_side]:
                     ignore_resize = True
-                elif any([
-                        self.adaptive_side == 'short' and w < h,
-                        self.adaptive_side == 'long' and w > h,
-                        self.adaptive_side == 'width',
-                ]):
+                elif any(
+                    [
+                        self.adaptive_side == "short" and w < h,
+                        self.adaptive_side == "long" and w > h,
+                        self.adaptive_side == "width",
+                    ]
+                ):
                     width = target_size
                     height = int(target_size * h / w)
                 else:
@@ -105,19 +117,21 @@ class Resize(object):
                     size=(width, height),
                     interpolation=self.interpolation,
                     return_scale=False,
-                    backend=self.backend)
+                    backend=self.backend,
+                )
                 results[key] = img
-                results['img_shape'] = img.shape
-                
-                if 'gt' in results:
-                    gt = results['gt']
+                results["img_shape"] = img.shape
+
+                if "gt" in results:
+                    gt = results["gt"]
                     gt = mmcv.imresize(
-                    gt,
-                    size=(width, height),
-                    interpolation=self.interpolation,
-                    return_scale=False,
-                    backend=self.backend)
-                    results['gt'] = gt
+                        gt,
+                        size=(width, height),
+                        interpolation=self.interpolation,
+                        return_scale=False,
+                        backend=self.backend,
+                    )
+                    results["gt"] = gt
 
     def __call__(self, results):
         self._resize_img(results)
@@ -125,10 +139,9 @@ class Resize(object):
 
     def __repr__(self):
         repr_str = self.__class__.__name__
-        repr_str += f'(size={self.size}, '
-        repr_str += f'interpolation={self.interpolation})'
+        repr_str += f"(size={self.size}, "
+        repr_str += f"interpolation={self.interpolation})"
         return repr_str
-
 
 
 def to_tensor(data):
@@ -149,10 +162,12 @@ def to_tensor(data):
         return torch.FloatTensor([data])
     else:
         raise TypeError(
-            f'Type {type(data)} cannot be converted to tensor.'
-            'Supported types are: `numpy.ndarray`, `torch.Tensor`, '
-            '`Sequence`, `int` and `float`')
-         
+            f"Type {type(data)} cannot be converted to tensor."
+            "Supported types are: `numpy.ndarray`, `torch.Tensor`, "
+            "`Sequence`, `int` and `float`"
+        )
+
+
 @PIPELINES.register_module()
 class ImageToTensor:
     """Convert image to :obj:`torch.Tensor` by given keys.
@@ -184,16 +199,14 @@ class ImageToTensor:
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             results[key] = to_tensor(img.transpose(2, 0, 1))
-            if 'gt' in results:
+            if "gt" in results:
                 results["gt"] = torch.from_numpy(results["gt"])
         return results
 
     def __repr__(self):
-        return f'{self.__class__.__name__}(keys={self.keys})'
-    
-    
-    
-    
+        return f"{self.__class__.__name__}(keys={self.keys})"
+
+
 @PIPELINES.register_module()
 class Normalize:
     """Normalize the image.
@@ -222,22 +235,19 @@ class Normalize:
             dict: Normalized results, 'img_norm_cfg' key is added into
                 result dict.
         """
-        for key in results.get('img_fields', ['img']):
-            results[key] = mmcv.imnormalize(results[key], self.mean, self.std,
-                                            self.to_rgb)
-        results['img_norm_cfg'] = dict(
-            mean=self.mean, std=self.std, to_rgb=self.to_rgb)
-        if 'gt' in results:
-            results['gt'] = results['gt']/255
+        for key in results.get("img_fields", ["img"]):
+            results[key] = mmcv.imnormalize(
+                results[key], self.mean, self.std, self.to_rgb
+            )
+        results["img_norm_cfg"] = dict(mean=self.mean, std=self.std, to_rgb=self.to_rgb)
+        if "gt" in results:
+            results["gt"] = results["gt"] / 255
         return results
 
     def __repr__(self):
         repr_str = self.__class__.__name__
-        repr_str += f'(mean={self.mean}, std={self.std}, to_rgb={self.to_rgb})'
+        repr_str += f"(mean={self.mean}, std={self.std}, to_rgb={self.to_rgb})"
         return repr_str
-    
-    
-
 
 
 @PIPELINES.register_module()
@@ -279,17 +289,18 @@ class Albumentation:
 
     def __init__(self, transforms, keymap=None):
         if albumentations is None:
-            raise RuntimeError('albumentations is not installed')
+            raise RuntimeError("albumentations is not installed")
 
         self.transforms = transforms
         self.filter_lost_elements = False
 
         self.aug = albumentations.Compose(
-            [self.albu_builder(t) for t in self.transforms])
+            [self.albu_builder(t) for t in self.transforms]
+        )
 
         if not keymap:
             self.keymap_to_albu = {
-                'img': 'image',
+                "img": "image",
             }
         else:
             self.keymap_to_albu = keymap
@@ -307,24 +318,25 @@ class Albumentation:
             obj: The constructed object.
         """
 
-        assert isinstance(cfg, dict) and 'type' in cfg
+        assert isinstance(cfg, dict) and "type" in cfg
         args = cfg.copy()
 
-        obj_type = args.pop('type')
+        obj_type = args.pop("type")
         if mmcv.is_str(obj_type):
             if albumentations is None:
-                raise RuntimeError('albumentations is not installed')
+                raise RuntimeError("albumentations is not installed")
             if not hasattr(albumentations.augmentations.transforms, obj_type):
-                warnings.warn('{obj_type} is not pixel-level transformations. '
-                              'Please use with caution.')
+                warnings.warn(
+                    "{obj_type} is not pixel-level transformations. "
+                    "Please use with caution."
+                )
             obj_cls = getattr(albumentations, obj_type)
         else:
-            raise TypeError(f'type must be a str, but got {type(obj_type)}')
+            raise TypeError(f"type must be a str, but got {type(obj_type)}")
 
-        if 'transforms' in args:
-            args['transforms'] = [
-                self.albu_builder(transform)
-                for transform in args['transforms']
+        if "transforms" in args:
+            args["transforms"] = [
+                self.albu_builder(transform) for transform in args["transforms"]
             ]
 
         return obj_cls(**args)
@@ -357,8 +369,9 @@ class Albumentation:
         return results
 
     def __repr__(self):
-        repr_str = self.__class__.__name__ + f'(transforms={self.transforms})'
+        repr_str = self.__class__.__name__ + f"(transforms={self.transforms})"
         return repr_str
+
 
 @PIPELINES.register_module()
 class RandomFlip(object):
@@ -374,12 +387,12 @@ class RandomFlip(object):
             'horizontal' and 'vertical'. Default: 'horizontal'.
     """
 
-    def __init__(self, prob=0.5, direction='vertical'):
+    def __init__(self, prob=0.5, direction="vertical"):
         self.prob = prob
         self.direction = direction
         if prob is not None:
             assert prob >= 0 and prob <= 1
-        assert direction in ['horizontal', 'vertical']
+        assert direction in ["horizontal", "vertical"]
 
     def __call__(self, results):
         """Call function to flip bounding boxes, masks, semantic segmentation
@@ -393,25 +406,25 @@ class RandomFlip(object):
                 result dict.
         """
 
-        if 'flip' not in results:
+        if "flip" not in results:
             flip = True if np.random.rand() < self.prob else False
-            results['flip'] = flip
-        if 'flip_direction' not in results:
-            results['flip_direction'] = self.direction
-        if results['flip']:
+            results["flip"] = flip
+        if "flip_direction" not in results:
+            results["flip_direction"] = self.direction
+        if results["flip"]:
             # flip image
-            results['img'] = mmcv.imflip(
-                results['img'], direction=results['flip_direction'])
+            results["img"] = mmcv.imflip(
+                results["img"], direction=results["flip_direction"]
+            )
 
             # flip segs
-            if 'gt' in results:
+            if "gt" in results:
                 # use copy() to make numpy stride positive
-                results['gt'] = mmcv.imflip(
-                    results['gt'], direction=results['flip_direction']).copy()
+                results["gt"] = mmcv.imflip(
+                    results["gt"], direction=results["flip_direction"]
+                ).copy()
         return results
-    
-    
-    
+
 
 @PIPELINES.register_module()
 class RandomCrop(object):
@@ -423,7 +436,7 @@ class RandomCrop(object):
             occupy.
     """
 
-    def __init__(self, crop_size, cat_max_ratio=0.7, ignore_index=255):
+    def __init__(self, crop_size, cat_max_ratio=0.5, ignore_index=255):
         assert crop_size[0] > 0 and crop_size[1] > 0
         self.crop_size = crop_size
         self.cat_max_ratio = cat_max_ratio
@@ -457,25 +470,199 @@ class RandomCrop(object):
                 updated according to crop size.
         """
 
-        img = results['img']
+        img = results["img"]
         crop_bbox = self.get_crop_bbox(img)
-            # Repeat 10 times
+        # Repeat 10 times
         for _ in range(3):
-            seg_temp = self.crop(results['gt'], crop_bbox)
-            if np.sum(seg_temp[seg_temp>0.5])/np.sum(results['gt']>0.5)>self.cat_max_ratio:
+            seg_temp = self.crop(results["gt"], crop_bbox)
+            if (
+                np.sum(seg_temp[seg_temp > 0.5]) / np.sum(results["gt"] > 0.5)
+                > self.cat_max_ratio
+            ):
                 break
-            crop_bbox = self.get_crop_bbox(results['img'])
+            crop_bbox = self.get_crop_bbox(results["img"])
 
         # crop the image
         img = self.crop(img, crop_bbox)
         img_shape = img.shape
-        results['img'] = img
-        results['img_shape'] = img_shape
+        results["img"] = img
+        results["img_shape"] = img_shape
 
         # crop semantic seg
-        results['gt'] = self.crop(results['gt'], crop_bbox)
+        results["gt"] = self.crop(results["gt"], crop_bbox)
 
         return results
 
     def __repr__(self):
-        return self.__class__.__name__ + f'(crop_size={self.crop_size})'
+        return self.__class__.__name__ + f"(crop_size={self.crop_size})"
+
+
+@PIPELINES.register_module()
+class PhotoMetricDistortion:
+    """Apply photometric distortion to image sequentially, every transformation
+    is applied with a probability of 0.5. The position of random contrast is in
+    second or second to last.
+
+    1. random brightness
+    2. random contrast (mode 0)
+    3. convert color from BGR to HSV
+    4. random saturation
+    5. random hue
+    6. convert color from HSV to BGR
+    7. random contrast (mode 1)
+
+    Required Keys:
+
+    - img
+
+    Modified Keys:
+
+    - img
+
+    Args:
+        brightness_delta (int): delta of brightness.
+        contrast_range (tuple): range of contrast.
+        saturation_range (tuple): range of saturation.
+        hue_delta (int): delta of hue.
+    """
+
+    def __init__(
+        self,
+        brightness_delta: int = 32,
+        contrast_range=(0.5, 1.5),
+        saturation_range=(0.5, 1.5),
+        hue_delta: int = 18,
+    ):
+        self.brightness_delta = brightness_delta
+        self.contrast_lower, self.contrast_upper = contrast_range
+        self.saturation_lower, self.saturation_upper = saturation_range
+        self.hue_delta = hue_delta
+
+    def convert(self, img: np.ndarray, alpha: int = 1, beta: int = 0) -> np.ndarray:
+        """Multiple with alpha and add beat with clip.
+
+        Args:
+            img (np.ndarray): The input image.
+            alpha (int): Image weights, change the contrast/saturation
+                of the image. Default: 1
+            beta (int): Image bias, change the brightness of the
+                image. Default: 0
+
+        Returns:
+            np.ndarray: The transformed image.
+        """
+
+        img = img.astype(np.float32) * alpha + beta
+        img = np.clip(img, 0, 255)
+        return img.astype(np.uint8)
+
+    def brightness(self, img: np.ndarray) -> np.ndarray:
+        """Brightness distortion.
+
+        Args:
+            img (np.ndarray): The input image.
+        Returns:
+            np.ndarray: Image after brightness change.
+        """
+
+        if random.randint(0, 1):
+            return self.convert(
+                img, beta=random.uniform(-self.brightness_delta, self.brightness_delta)
+            )
+        return img
+
+    def contrast(self, img: np.ndarray) -> np.ndarray:
+        """Contrast distortion.
+
+        Args:
+            img (np.ndarray): The input image.
+        Returns:
+            np.ndarray: Image after contrast change.
+        """
+
+        if random.randint(0, 1):
+            return self.convert(
+                img, alpha=random.uniform(self.contrast_lower, self.contrast_upper)
+            )
+        return img
+
+    def saturation(self, img: np.ndarray) -> np.ndarray:
+        """Saturation distortion.
+
+        Args:
+            img (np.ndarray): The input image.
+        Returns:
+            np.ndarray: Image after saturation change.
+        """
+
+        if random.randint(0, 1):
+            img = mmcv.bgr2hsv(img)
+            img[:, :, 1] = self.convert(
+                img[:, :, 1],
+                alpha=random.uniform(self.saturation_lower, self.saturation_upper),
+            )
+            img = mmcv.hsv2bgr(img)
+        return img
+
+    def hue(self, img: np.ndarray) -> np.ndarray:
+        """Hue distortion.
+
+        Args:
+            img (np.ndarray): The input image.
+        Returns:
+            np.ndarray: Image after hue change.
+        """
+
+        if random.randint(0, 1):
+            img = mmcv.bgr2hsv(img)
+            img[:, :, 0] = (
+                img[:, :, 0].astype(int)
+                + random.randint(-self.hue_delta, self.hue_delta)
+            ) % 180
+            img = mmcv.hsv2bgr(img)
+        return img
+
+    def __call__(self, results: dict) -> dict:
+        """Transform function to perform photometric distortion on images.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Result dict with images distorted.
+        """
+
+        img = results["img"]
+        # random brightness
+        img = self.brightness(img)
+
+        # mode == 0 --> do random contrast first
+        # mode == 1 --> do random contrast last
+        mode = random.randint(0, 1)
+        if mode == 1:
+            img = self.contrast(img)
+
+        # random saturation
+        img = self.saturation(img)
+
+        # random hue
+        img = self.hue(img)
+
+        # random contrast
+        if mode == 0:
+            img = self.contrast(img)
+
+        results["img"] = img
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += (
+            f"(brightness_delta={self.brightness_delta}, "
+            f"contrast_range=({self.contrast_lower}, "
+            f"{self.contrast_upper}), "
+            f"saturation_range=({self.saturation_lower}, "
+            f"{self.saturation_upper}), "
+            f"hue_delta={self.hue_delta})"
+        )
+        return repr_str

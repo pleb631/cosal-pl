@@ -8,7 +8,8 @@ img_norm_cfg = dict(
 train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="RandomFlip"),
-    dict(type="Resize", size=(256, 256)),
+    dict(type="PhotoMetricDistortion"),
+    dict(type="Resize", size=(288, 288)),
     dict(type="RandomCrop", crop_size=(224, 224)),
     dict(type="Normalize", **img_norm_cfg),
     dict(type="ImageToTensor", keys=["img"]),
@@ -23,9 +24,9 @@ val_pipeline = [
 
 trian_data = dict(
     cosal_paths=["/root/project/CoRP/Dataset/COCO9213"],
-    batch_size=2,
-    group_size=5,
-    sal_batch_size=10,
+    batch_size=1,
+    group_size=10,
+    sal_batch_size=8,
     sal_paths=["/root/project/CoRP/Dataset/DUTS-TR"],
     shuffle=True,
     num_workers=8,
@@ -33,12 +34,25 @@ trian_data = dict(
 )
 val_data = dict(
     cosal_paths=[
-        "/root/project/CoRP/Dataset/CoCA",
         "/root/project/CoRP/Dataset/CoSal2015",
         "/root/project/CoRP/Dataset/CoSOD3k",
     ],
     batch_size=1,
-    group_size=5,
+    group_size=10,
+    sal_batch_size=0,
+    sal_paths=None,
+    shuffle=False,
+    num_workers=2,
+    pipeline=val_pipeline,
+)
+test_data = dict(
+    cosal_paths=[
+        "/root/project/CoRP/Dataset/CoSal2015",
+        "/root/project/CoRP/Dataset/CoSOD3k",
+        "/root/project/CoRP/Dataset/CoCA",
+    ],
+    batch_size=1,
+    group_size=None,
     sal_batch_size=0,
     sal_paths=None,
     shuffle=False,
@@ -47,10 +61,10 @@ val_data = dict(
 )
 train_set = dict(
     weight_decay=1e-4,
-    lr=1e-4,
+    lr=1e-5,
     lr_scheduler="multistep",
     gamma=0.1,
-    milestones=[50, 60],
+    milestones=[40, 60],
 )
 model = dict(
     backbone=dict(type="VGG16", pretrained=True),
@@ -61,4 +75,4 @@ model = dict(
 )
 
 
-workdir = "workdir/basemodel"
+workdir = "workdir/basemodel1"

@@ -51,7 +51,7 @@ def main():
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         monitor="acc",
         dirpath=cfg.workdir,
-        filename="sample-{epoch:02d}-{iou:.2f}",
+        filename="sample-{epoch:02d}-{acc:.2f}",
         every_n_epochs=1,
         mode="max",
     )
